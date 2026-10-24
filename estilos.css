@@ -379,6 +379,8 @@ body.leak-mode::after {
 .btn-text.safe:hover { background: var(--safe-bg); }
 .btn-text.danger { color: var(--danger); }
 .btn-text.danger:hover { background: var(--danger-bg); }
+.btn-text.wsp { color: #25d366; }
+.btn-text.wsp:hover { background: rgba(37, 211, 102, 0.15); }
 
 .disclaimer { margin-top: 16px; font-size: 10px; text-align: center; color: var(--text-secondary); line-height: 1.4; }
 

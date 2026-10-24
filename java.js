@@ -6,6 +6,17 @@ const ESPERA_MS = 5 * 60 * 1000; // Tras una fuga, se pide esperar unos minutos 
 const historialDatos = [];
 const MAX_PUNTOS_GRAFICO = 30;
 
+// ===== Alerta por WhatsApp (CallMeBot) =====
+// Para activarla, una sola vez:
+//   1) Guardá en tus contactos el número +34 621 33 11 709 (bot de CallMeBot)
+//   2) Mandale ese mensaje exacto: "I allow callmebot to send me messages"
+//   3) Te responde con una apikey: pegala aquí abajo junto a TU número
+const ALERTA_WSP = {
+    destino: "+549XXXXXXXXXX",   // ← Tu teléfono con código país (ej: +5491123456789)
+    apikey: "ACA_VA_TU_APIKEY",  // ← La que te devuelve CallMeBot
+    recordatorioMs: 5 * 60 * 1000 // Si la fuga sigue activa, reavisa cada 5 minutos
+};
+
 let port;
 let reader;
 let readableStreamClosed;
@@ -168,6 +179,82 @@ function procesarDatoSerial(texto) {
     actualizarPantalla(valor, valor > UMBRAL, '📡 Puerto serie USB');
 }
 
+// ===== Alerta por WhatsApp =====
+function alertaConfigurada() {
+    return /^\+\d{10,15}$/.test(ALERTA_WSP.destino)
+        && /^[\w-]{6,}$/.test(ALERTA_WSP.apikey)
+        && ALERTA_WSP.apikey !== "ACA_VA_TU_APIKEY";
+}
+
+// Envía el mensaje vía CallMeBot. mode "no-cors": el pedido parte igual
+// aunque el servidor no permita leer la respuesta desde el navegador.
+function mandarWhatsApp(texto) {
+    if (!alertaConfigurada()) {
+        console.warn("⚠️ Alerta WhatsApp sin configurar: completá ALERTA_WSP al inicio de java.js");
+        return false;
+    }
+    const url = "https://api.callmebot.com/whatsapp.php"
+        + "?phone=" + encodeURIComponent(ALERTA_WSP.destino)
+        + "&text=" + encodeURIComponent(texto)
+        + "&apikey=" + encodeURIComponent(ALERTA_WSP.apikey);
+
+    fetch(url, { mode: "no-cors" })
+        .then(() => console.log("📱 Alerta WhatsApp enviada"))
+        .catch(err => console.error("No se pudo enviar la alerta WhatsApp:", err));
+    return true;
+}
+
+let fugaNotificada = false;   // ¿ya se mandó la alerta inicial de ESTA fuga?
+let recordatorioFuga = null;  // recordatorio periódico mientras la fuga continúa
+
+function detenerRecordatorio() {
+    clearInterval(recordatorioFuga);
+    recordatorioFuga = null;
+}
+
+// Primera alerta de la fuga + recordatorios hasta que cesen los datos peligrosos
+function notificarFuga(valor, simulada) {
+    const hora = new Date().toLocaleTimeString("es-AR");
+    const origen = simulada ? "\n🧪 (mensaje generado por el modo simulación)" : "";
+    const texto =
+        "🚨 ALARMA GasGuard Pro" + origen +
+        "\nFuga de gas detectada a las " + hora + "." +
+        "\nNivel del sensor: " + valor + "/1023." +
+        "\nVentilá, cerrá la llave y salí de la casa." +
+        "\nDesde afuera llamá al 100 (Bomberos).";
+
+    mandarWhatsApp(texto);
+    if ($('tag-wsp')) $('tag-wsp').hidden = false;
+
+    if (!alertaConfigurada()) return; // sin config: no programar recordatorios
+
+    detenerRecordatorio();
+    recordatorioFuga = setInterval(() => {
+        mandarWhatsApp("⏰ GasGuard Pro: la fuga de gas SIGUE detectada a las " +
+            new Date().toLocaleTimeString("es-AR") + ". Ventilá y salí del lugar.");
+    }, ALERTA_WSP.recordatorioMs);
+}
+
+// El sensor vuelve a valores normales tras una fuga notificada
+function avisarFinDeFuga(simulada) {
+    detenerRecordatorio();
+    const hora = new Date().toLocaleTimeString("es-AR");
+    mandarWhatsApp("🟢 GasGuard Pro: el nivel de gas vuelve a valores normales a las " + hora +
+        ". Igual esperá unos minutos y ventilá bien antes de volver a entrar." +
+        (simulada ? "\n🧪 (modo simulación)" : ""));
+}
+
+// Botón de prueba: envía un WhatsApp aunque no haya fuga
+function probarAlertaWhatsApp() {
+    const btn = $('btnWsp');
+    const enviado = mandarWhatsApp("🧪 Prueba GasGuard Pro: si este mensaje te llegó, tu alerta por WhatsApp funciona correcto ✔ " +
+        new Date().toLocaleTimeString("es-AR"));
+
+    if (!btn) return;
+    btn.innerText = enviado ? "✅ Enviado — revisá tu WhatsApp" : "⚠️ Sin configure — editá ALERTA_WSP en java.js";
+    setTimeout(() => { btn.innerText = "📱 Probar alerta WhatsApp"; }, 3000);
+}
+
 // ===== Simulador =====
 function simularEstado(tipo) {
     simulacionHasta = Date.now() + SIMULACION_MS;
@@ -186,6 +273,7 @@ function actualizarPantalla(valor, esPeligro, fuente) {
     actualizarHora();
     $('ppmValue').innerText = valor;
     $('sourceSub').innerText = fuente;
+    const simulada = fuente && fuente.includes('simulación');
 
     // analogRead entrega valores de 0 a 1023
     const porcentaje = Math.min(Math.max((valor / 1023) * 100, 5), 100);
@@ -196,6 +284,12 @@ function actualizarPantalla(valor, esPeligro, fuente) {
         setTarjeta('status-danger', 'warning', '🚨 ¡ALERTA DE FUGA!',
             'Mantené la calma y seguí los pasos de abajo 👇');
         $('ppmProgress').className = 'progress-fill fill-danger';
+
+        // Alerta por WhatsApp: solo al INICIO de la fuga (anti-spam)
+        if (!fugaNotificada) {
+            fugaNotificada = true;
+            notificarFuga(valor, simulada);
+        }
     } else if (Date.now() - ultimaFuga < ESPERA_MS) {
         // Los valores ya bajaron, pero se pide paciencia antes de volver a entrar
         setTarjeta('status-safe', 'hourglass_top', '✅ VALORES NORMALES',
@@ -205,6 +299,12 @@ function actualizarPantalla(valor, esPeligro, fuente) {
         setTarjeta('status-safe', 'verified_user', '😌 TODO TRANQUI',
             'Aire limpio, podés respirar tranquilo 🌿');
         $('ppmProgress').className = 'progress-fill fill-safe';
+    }
+
+    // Fin de la fuga notificada: aviso por WhatsApp apenas retorna la calma
+    if (!esPeligro && fugaNotificada) {
+        fugaNotificada = false;
+        avisarFinDeFuga(simulada);
     }
 
     setModoFuga(esPeligro);
