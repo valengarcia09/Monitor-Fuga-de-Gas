@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GasGuard Pro | Monitor IoT 🛡️</title>
+    <meta name="theme-color" content="#0b0f19">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b0f19'/%3E%3Ctext x='50' y='70' font-size='52' text-anchor='middle'%3E🛡%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="estilos.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -51,6 +53,11 @@
                 <span class="metric-title">⏱️ Sincronización</span>
                 <div class="metric-value time" id="lastUpdate">--:--:--</div>
                 <span class="metric-sub" id="sourceSub">Esperando puerto USB</span>
+            </div>
+
+            <div class="metric-card metric-live">
+                <span class="metric-title">📈 Nivel en vivo</span>
+                <canvas id="graficoEnVivo" class="grafico-en-vivo" height="70"></canvas>
             </div>
         </div>
 
@@ -163,16 +170,39 @@
                 <button class="btn-text safe" onclick="simularEstado('seguro')">😌 Simular seguro</button>
                 <button class="btn-text danger" onclick="simularEstado('peligro')">🚨 Simular fuga</button>
                 <button class="btn-text wsp" id="btnWsp" onclick="probarAlertaWhatsApp()">📱 Probar alerta WhatsApp</button>
+                <button class="btn-text warn" id="btnBeep" onclick="alternarBeepNavegador()">🔔 Aviso sonoro del navegador: OFF</button>
             </div>
         </footer>
 
-        <p class="disclaimer">🧪 Proyecto educativo hecho con Arduino + MQ-135. No reemplaza a un detector de gas certificado.</p>
+        <p class="disclaimer">
+            🧪 Proyecto educativo hecho con Arduino + MQ-135. No reemplaza a un detector de gas certificado.
+            <a href="https://github.com/valengarcia09/Monitor-Fuga-de-Gas" target="_blank" rel="noopener">⭐ Ver código en GitHub</a>
+        </p>
+    </div>
+
+    <!-- Historial completo (modal) -->
+    <div id="historyModal" class="modal-overlay" onclick="if(event.target===this) cerrarHistorialModal()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>📜 Historial y gráfico completo</h3>
+                <button class="btn-cerrar-modal" onclick="cerrarHistorialModal()" aria-label="Cerrar historial">×</button>
+            </div>
+            <canvas id="graficoHistorial" class="grafico-historial" height="160"></canvas>
+            <div class="tabla-scroll">
+                <table class="tabla-historial">
+                    <thead>
+                        <tr><th>Fecha</th><th>Hora</th><th>Valor</th><th>Nivel</th></tr>
+                    </thead>
+                    <tbody id="cuerpoHistorial"></tbody>
+                </table>
+            </div>
+            <div class="modal-botones">
+                <button class="btn btn-secondary" onclick="limpiarHistorial()">🗑️ Borrar historial</button>
+                <button class="btn btn-primary" onclick="cerrarHistorialModal()">Cerrar</button>
+            </div>
+        </div>
     </div>
 
     <script src="java.js"></script>
-    <!-- Pégalo justo aquí, antes de cerrar el body -->
-    <div id="historyModal" class="modal-overlay">
-    <!-- Contenido de la ventana modal que te pasé antes -->
-    </div>
 </body>
 </html>
