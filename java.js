@@ -1,7 +1,6 @@
 // ===== Configuración =====
 const UMBRAL = 400;          // Debe ser igual a "umbralGas" en el sketch del Arduino
 const TIMEOUT_MS = 4000;     // Si pasan 4 s sin datos, se avisa "sin señal"
-const SIMULACION_MS = 10000; // Con el Arduino conectado, la simulación pausa los datos reales 10 s
 const ESPERA_MS = 5 * 60 * 1000; // Tras una fuga, se pide esperar unos minutos más antes de volver a entrar
 const historialDatos = [];
 const MAX_PUNTOS_GRAFICO = 30;
@@ -25,7 +24,6 @@ let reader;
 let readableStreamClosed;
 let keepReading = false;
 let watchdog;
-let simulacionHasta = 0;
 let ultimaFuga = 0;
 let nivelActual = "idle";       // idle | peligro | precaucion | espera | tranqui
 let ultimoNivelRegistrado = null;
@@ -291,6 +289,8 @@ function renderizarTablaHistorial() {
 
 // ===== Conexión con el Arduino =====
 async function conectarArduino() {
+    cancelarSimulacion(); // si estaba el modo demo, lo corta
+
     if (!('serial' in navigator)) {
         alert("Tu navegador no soporta Web Serial. Usá Google Chrome o Microsoft Edge.");
         return;
@@ -367,6 +367,7 @@ async function desconectarArduino() {
     btn.onclick = conectarArduino;
 
     $('sourceSub').innerText = 'Esperando puerto USB';
+    cancelarSimulacion(); // desconectar también corta el modo demo
     mostrarInactivo();
 }
 
@@ -383,8 +384,8 @@ function procesarDatoSerial(texto) {
 
     reiniciarWatchdog();
 
-    // Si se está simulando, los datos reales esperan unos segundos
-    if (Date.now() < simulacionHasta) return;
+    // Con una simulación en curso, los datos reales del USB se ignoran
+    if (simulando) return;
 
     const valor = parseInt(coincidencia[0], 10);
     actualizarPantalla(valor, valor > UMBRAL, '📡 Puerto serie USB');
@@ -467,29 +468,68 @@ function probarAlertaWhatsApp() {
 }
 
 // ===== Simulador =====
-function simularEstado(tipo) {
-    simulacionHasta = Date.now() + SIMULACION_MS;
+// Modo demo continuo: los valores evolucionan solos (suben en fuga, se
+// asientan abajo en seguro) y alimentan reloj, gráfico en vivo e historial
+// hasta que se cambia de modo o se conecta el Arduino real.
+let simulando = null;         // 'seguro' | 'peligro' | null
+let valorSimulado = 100;      // valor evolutivo del sensor simulado
+let timerSimulacion = null;
 
-    // Badge de modo demo mientras dure la simulación
+function simulacionActiva() {
+    return simulando !== null;
+}
+
+// Corta el modo demo y devuelve el badge a su estado real
+function cancelarSimulacion() {
+    if (simulando === null) return;
+    simulando = null;
+    clearInterval(timerSimulacion);
+    timerSimulacion = null;
+    restaurarBadge();
+}
+
+function restaurarBadge() {
     const badge = $('connectionBadge');
-    badge.className = 'badge badge-demo';
-    badge.innerHTML = '<span class="dot"></span> 🧪 Modo demo';
-    setTimeout(() => {
-        if (Date.now() < simulacionHasta) return; // otra simulación en curso
-        const conectado = !!port;
-        badge.className = conectado ? 'badge badge-connected' : 'badge badge-disconnected';
-        badge.innerHTML = conectado
-            ? '<span class="dot"></span> En línea (USB)'
-            : '<span class="dot"></span> Desconectado';
-    }, SIMULACION_MS);
+    const conectado = !!port;
+    badge.className = conectado ? 'badge badge-connected' : 'badge badge-disconnected';
+    badge.innerHTML = conectado
+        ? '<span class="dot"></span> En línea (USB)'
+        : '<span class="dot"></span> Desconectado';
+}
 
-    if (tipo === 'peligro') {
-        const valor = 750 + Math.floor(Math.random() * 200); // entre 750 y 949
-        actualizarPantalla(valor, true, '🧪 Modo simulación');
-    } else {
-        const valor = 80 + Math.floor(Math.random() * 100);  // entre 80 y 179
-        actualizarPantalla(valor, false, '🧪 Modo simulación');
+function simularEstado(tipo) {
+    if (timerSimulacion) { clearInterval(timerSimulacion); timerSimulacion = null; }
+
+    if (!simulando) {
+        // Primer arranque del modo demo: badge + punto de partida del sensor
+        const badge = $('connectionBadge');
+        badge.className = 'badge badge-demo';
+        badge.innerHTML = '<span class="dot"></span> 🧪 Modo demo';
+
+        const leido = parseInt($('ppmValue').innerText, 10);
+        valorSimulado = Number.isFinite(leido) ? leido : 100;
     }
+    simulando = tipo;
+
+    timerSimulacion = setInterval(() => {
+        let objetivo, suavizado, ruido;
+        if (simulando === 'peligro') {
+            // El nivel escala hacia ~800 y ondula arriba del umbral
+            objetivo = 800 + Math.sin(Date.now() / 3000) * 55;
+            suavizado = 0.25;
+            ruido = (Math.random() - 0.5) * 30;
+        } else {
+            // El nivel baja y se asienta en zona segura, sin rozar la precaución
+            objetivo = 120 + Math.sin(Date.now() / 4000) * 25;
+            suavizado = 0.35;
+            ruido = (Math.random() - 0.5) * 18;
+        }
+
+        valorSimulado += (objetivo - valorSimulado) * suavizado + ruido;
+        valorSimulado = Math.min(Math.max(valorSimulado, 20), 1000);
+
+        actualizarPantalla(Math.round(valorSimulado), valorSimulado > UMBRAL, '🧪 Modo simulación');
+    }, 800);
 }
 
 // ===== Actualización de la pantalla =====
