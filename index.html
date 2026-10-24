@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasGuard Pro | Monitor IoT 🛡️</title>
+    <link rel="stylesheet" href="estilos.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <!-- Cabecera del Dashboard -->
+        <header class="dashboard-header">
+            <div class="logo-area">
+                <span class="material-icons-round">local_fire_department</span>
+                <div>
+                    <h1><span class="brand">GasGuard</span> <span class="pro-tag">PRO</span></h1>
+                    <p class="tagline">Tu guardián del aire 🌬️</p>
+                </div>
+            </div>
+            <div id="connectionBadge" class="badge badge-disconnected">
+                <span class="dot"></span> Desconectado
+            </div>
+        </header>
+
+        <!-- Panel Principal de Estado -->
+        <section id="statusCard" class="main-card status-idle" aria-live="assertive">
+            <div class="card-icon">
+                <span class="material-icons-round" id="statusIcon">power_off</span>
+            </div>
+            <div class="card-info">
+                <span class="label">Estado actual del sistema</span>
+                <h2 id="statusText">🔌 SIN CONEXIÓN</h2>
+                <p id="statusMsg" class="status-msg">Conectá tu Arduino para empezar a cuidar el aire 💨</p>
+            </div>
+        </section>
+
+        <!-- Cuadrícula de Métricas -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <span class="metric-title">📊 Nivel del sensor</span>
+                <div class="metric-value"><span id="ppmValue">--</span> <small>/ 1023</small></div>
+                <div class="progress-bar">
+                    <div id="ppmProgress" class="progress-fill fill-safe" style="width: 5%;"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-title">⏱️ Sincronización</span>
+                <div class="metric-value time" id="lastUpdate">--:--:--</div>
+                <span class="metric-sub" id="sourceSub">Esperando puerto USB</span>
+            </div>
+        </div>
+
+        <!-- PANEL DE ACCIONES FÍSICAS (Aparece únicamente al detectar fuga) -->
+        <div id="actionAlertPanel" class="action-alert-panel">
+            <div class="alert-header">
+                <span class="material-icons-round">warning</span>
+                <h3>🚨 ¡Medidas de emergencia en marcha!</h3>
+            </div>
+            <div class="actions-grid">
+                <div class="action-tag">🔴 Alarma LED encendida</div>
+                <div class="action-tag">🔊 Sonido de alarma activo</div>
+                <!-- Cuando agregues el servomotor y los ventiladores, descomentá estas dos líneas:
+                <div class="action-tag">🪟 Ventanas abiertas (Servomotor)</div>
+                <div class="action-tag">🌀 Ventiladores circulando aire</div>
+                -->
+            </div>
+        </div>
+
+        <!-- GUÍA DE EMERGENCIA (Aparece únicamente al detectar fuga) -->
+        <section id="leakGuide" class="leak-guide">
+            <div class="guide-header">
+                <span class="guide-emoji">🆘</span>
+                <div>
+                    <h3>¿Qué hacer durante una fuga de gas?</h3>
+                    <p>Mantené la calma y seguí estos pasos 👇</p>
+                </div>
+            </div>
+
+            <!-- Números de emergencia (Argentina) -->
+            <div class="emergency-numbers">
+                <p class="numbers-title">📞 Llamá desde afuera:</p>
+                <div class="numbers-grid">
+                    <a class="number-card" href="tel:100">
+                        <span class="number-emoji">🚒</span>
+                        <span class="number-name">Bomberos</span>
+                        <span class="number-value">100</span>
+                    </a>
+                    <a class="number-card" href="tel:107">
+                        <span class="number-emoji">🚑</span>
+                        <span class="number-name">Ambulancia (SAME)</span>
+                        <span class="number-value">107</span>
+                    </a>
+                    <a class="number-card" href="tel:911">
+                        <span class="number-emoji">🆘</span>
+                        <span class="number-name">Emergencias</span>
+                        <span class="number-value">911</span>
+                    </a>
+                </div>
+                <p class="numbers-hint">Si el 107 no atiende en tu zona, llamá al 911 y pedí una ambulancia.</p>
+            </div>
+
+            <div class="guide-columns">
+                <div class="guide-col guide-do">
+                    <h4>✅ Qué SÍ hacer</h4>
+                    <ul>
+                        <li>🪟 <strong>Ventilá:</strong> abrí puertas y ventanas para que circule el aire.</li>
+                        <li>🔧 <strong>Cerrá la llave de paso</strong> del gas, solo si llegás sin riesgo.</li>
+                        <li>🚶 <strong>Salí del lugar</strong> y avisá a todos los que estén cerca.</li>
+                        <li>📞 <strong>Llamá desde afuera</strong> a los números de emergencia de arriba o a tu empresa de gas.</li>
+                        <li>⏳ <strong>Esperá afuera</strong> hasta que un profesional diga que es seguro volver.</li>
+                    </ul>
+                </div>
+
+                <div class="guide-col guide-dont">
+                    <h4>❌ Qué NO hacer</h4>
+                    <ul>
+                        <li>💡 <strong>No toques interruptores</strong> ni enchufes: una chispa puede encender el gas.</li>
+                        <li>🔥 <strong>Nada de fuego:</strong> fósforos, encendedores, velas, cigarrillos ni estufas.</li>
+                        <li>📱 <strong>No uses el celular</strong> dentro de la zona de la fuga: llamá desde afuera.</li>
+                        <li>🔍 <strong>No busques el origen</strong> ni intentes repararlo vos mismo.</li>
+                        <li>🚪 <strong>No vuelvas a entrar</strong> hasta que te lo autoricen.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="wait-box">
+                <span class="wait-emoji">⏳</span>
+                <div>
+                    <h4>Esperá un tiempito antes de volver a entrar</h4>
+                    <p>Quedate afuera hasta que el ambiente se ventile bien, no haya olor a gas y un profesional (Bomberos o tu empresa de gas) confirme que es seguro. Aunque esta página vuelva a decir que está todo bien, dejá pasar unos minutos más.</p>
+                </div>
+            </div>
+
+            <p class="guide-note">🤢 Si sentís mareo, dolor de cabeza u olor fuerte, salí al aire libre ya mismo.</p>
+        </section>
+
+        <!-- SECCIÓN INFORMATIVA DE PRECAUCIONES (Siempre visible) -->
+        <section class="info-section">
+            <h3><span class="material-icons-round">info</span> 🧯 Medidas de precaución</h3>
+            <ul class="precautions-list">
+                <li>🔎 <strong>Revisiones:</strong> Inspeccioná conexiones y mangueras periódicamente.</li>
+                <li>🌬️ <strong>Ventilación:</strong> Nunca bloquees rejillas ni entradas de aire natural.</li>
+                <li>🔥 <strong>Prevención:</strong> Mantené los productos inflamables lejos de fuentes de calor.</li>
+            </ul>
+        </section>
+
+        <!-- Panel de Control / Conexión USB y Simulador -->
+        <footer class="control-panel">
+            <!-- Pégalo aquí, dentro del panel de control -->
+            <button class="btn btn-secondary" onclick="abrirHistorialModal()" style="margin-top: 8px; background: #1e293b; color: var(--accent); border: 1px solid var(--border-color);">📜 Ver Historial y Gráfico Completo</button>
+            <h3>🎛️ Panel de control (Hardware y simulación)</h3>
+            <div class="button-group">
+                <button id="btnConectar" class="btn btn-primary" onclick="conectarArduino()">🔌 Conectar Arduino (USB)</button>
+            </div>
+
+            <div class="simulator-section">
+                <span>🧪 Simulador:</span>
+                <button class="btn-text safe" onclick="simularEstado('seguro')">😌 Simular seguro</button>
+                <button class="btn-text danger" onclick="simularEstado('peligro')">🚨 Simular fuga</button>
+            </div>
+        </footer>
+
+        <p class="disclaimer">🧪 Proyecto educativo hecho con Arduino + MQ-135. No reemplaza a un detector de gas certificado.</p>
+    </div>
+
+    <script src="java.js"></script>
+    <!-- Pégalo justo aquí, antes de cerrar el body -->
+    <div id="historyModal" class="modal-overlay">
+    <!-- Contenido de la ventana modal que te pasé antes -->
+    </div>
+</body>
+</html>
